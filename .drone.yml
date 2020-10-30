@@ -11,15 +11,15 @@ trigger:
 
 steps:
 
-- name: code-analysis
-  image: docker-registry.yizhishang.com/aosapps/drone-sonar-plugin:latest
-  pull: IfNotPresent
-  settings:
-    sonar_host: http://sonar.yizhishang.com
-    sonar_token:
-      from_secret: sonar_token
-    level: debug
-    showProfiling: true
+#- name: code-analysis
+#  image: docker-registry.yizhishang.com/aosapps/drone-sonar-plugin:latest
+#  pull: IfNotPresent
+#  settings:
+#    sonar_host: http://sonar.yizhishang.com
+#    sonar_token:
+#      from_secret: sonar_token
+#    level: debug
+#    showProfiling: true
 
 - name: build-settings
   image: docker-registry.yizhishang.com/knives/drone-maven-setting:latest
@@ -56,6 +56,38 @@ steps:
     event: push
   depends_on:
   - build-settings
+
+- name: docker
+  image: docker-registry.yizhishang.com/plugins/docker:latest
+  pull: IfNotPresent
+  privileged: true
+  settings:
+    registry: docker-registry.yizhishang.com
+    insecure: true
+    username:
+      from_secret: username
+    password:
+      from_secret: password
+    repo: docker-registry.yizhishang.com/yizhishang/tx-manager
+    tag:
+      - ${DRONE_BRANCH}
+  depends_on:
+    - maven
+
+- name: pod-update
+  image: docker-registry.yizhishang.com/drone-kubernetes:0707
+  settings:
+    kubernetes_server:
+      from_secret: api_server
+    kubernetes_token:
+      from_secret: kubernetes_token
+    namespace: yizhishang
+    deployment: tx-manager
+    container: tx-manager
+    repo: docker-registry.yizhishang.com/yizhishang/tx-manager
+    tag: ${DRONE_BRANCH}
+  depends_on:
+    - docker
 
 volumes:
 - name: MavenCache
@@ -142,7 +174,7 @@ steps:
   - maven
 
 - name: pod-update
-  image: docker-registry.yizhishang.com/drone-kubernetes:latest
+  image: docker-registry.yizhishang.com/drone-kubernetes:0707
   settings:
     kubernetes_server:
       from_secret: api_server
